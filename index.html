@@ -1,4 +1,4 @@
-<title>병상 산란선 맵</title>
+<title>이동 촬영 검사 안심거리</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
@@ -94,9 +94,9 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 <div class="wrap">
   <header>
     <div>
-      <div class="eyebrow">Mobile radiography · Scatter map</div>
-      <h1>병상 산란선 맵</h1>
-      <p>이동형 촬영 시 누워 있는 환자 주변의 1회 촬영당 산란선 공기커마 분포를 보여 줍니다.</p>
+      <div class="eyebrow">Mobile radiography · Safe distance</div>
+      <h1>이동 촬영 검사 안심거리</h1>
+      <p>병실에서 X선 사진을 찍을 때, 주변 사람이 어디까지 물러나면 안심해도 되는지 보여 줍니다.</p>
     </div>
     <span class="chip">교육용 근사 모델 · 실측 보정 권장</span>
   </header>
@@ -104,7 +104,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
   <section class="safe" aria-live="polite">
     <div>
       <div class="safe-k" id="sf-title">성인 · Chest AP</div>
-      <div class="safe-d"><b id="sf-dist">1.0 m</b>밖이면 안전합니다</div>
+      <div class="safe-d"><b id="sf-dist">1.0 m</b>밖이면 안심하셔도 됩니다</div>
       <div class="safe-sub" id="sf-sub"></div>
     </div>
     <ul class="safe-rules">
@@ -170,14 +170,14 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       <fieldset>
         <legend>안내 기준</legend>
         <div class="seg" role="group" aria-label="표시 방식">
-          <button id="view-zone" data-view="zone" aria-pressed="true">안전 구역</button>
+          <button id="view-zone" data-view="zone" aria-pressed="true">안심 구역</button>
           <button id="view-detail" data-view="detail" aria-pressed="false">등선량 상세</button>
         </div>
-        <div class="seg" role="group" aria-label="안전 기준">
+        <div class="seg" role="group" aria-label="안심 기준">
           <button id="th-1h" data-th="60" aria-pressed="true">자연방사선 1시간</button>
           <button id="th-10m" data-th="10" aria-pressed="false">자연방사선 10분</button>
         </div>
-        <div class="hint">안전선 밖에서 1회 촬영 때 받는 양이 고른 기준 이하입니다. 한국인 연평균 자연방사선 약 3 mSv를 기준으로 했습니다.</div>
+        <div class="hint">안심선 밖에서 1회 촬영 때 받는 양이 고른 기준 이하입니다. 한국인 연평균 자연방사선 약 3 mSv를 기준으로 했습니다.</div>
       </fieldset>
 
       <!-- 촬영 조건·배치: 화면에서 숨김 (프리셋 값 보관용으로만 유지) -->
@@ -203,12 +203,12 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       <fieldset>
         <legend>판독값 · 1회 촬영</legend>
         <div class="read">
-          <div><span>입사 공기커마</span><span id="r-kin"></span></div>
-          <div><span>측방 1 m 산란선</span><span id="r-1m"></span></div>
+          <div><span>환자가 받는 양 (입사)</span><span id="r-kin"></span></div>
+          <div><span>옆 1 m에서 받는 양</span><span id="r-1m"></span></div>
           <div class="hi"><span>기사 위치</span><span id="r-tech"></span></div>
           <div class="hi"><span>옆 병상 환자</span><span id="r-nb"></span></div>
           <div><span>옆 환자 1 mSv까지</span><span id="r-nbN"></span></div>
-          <div><span>0.05 µGy 경계 (측방)</span><span id="r-edge"></span></div>
+          <div><span>0.05 µGy 경계 (옆)</span><span id="r-edge"></span></div>
         </div>
         <div class="legend" id="legend"></div>
       </fieldset>
@@ -369,7 +369,7 @@ function drawPlan(){
     });
     const sd = safeDist(m.S1), rd = sd.show*0.92;
     const [lx,ly] = toPx(fc.x+rd*Math.SQRT1_2, fc.y+rd*Math.SQRT1_2+20);
-    if(lx < W-60 && ly < W-40){ pctx.font='700 20px "IBM Plex Sans KR", sans-serif'; const t='안전선 '+(sd.show/100).toFixed(1)+' m', tw=pctx.measureText(t).width+16;
+    if(lx < W-60 && ly < W-40){ pctx.font='700 20px "IBM Plex Sans KR", sans-serif'; const t='안심선 '+(sd.show/100).toFixed(1)+' m', tw=pctx.measureText(t).width+16;
       pctx.fillStyle=css('--z-safe'); pctx.fillRect(Math.min(lx-tw/2, W-tw-6), ly-44, tw, 30); pctx.fillStyle='#ffffff'; pctx.textAlign='center'; pctx.fillText(t, Math.min(lx, W-tw/2-6), ly-22); }
   }
   // level labels along lateral axis (right of field)
@@ -422,7 +422,7 @@ function readouts(){
   $('#sf-dist').textContent = (sd.show/100).toFixed(1)+' m';
   $('#sf-sub').textContent = '계산상 경계 '+(sd.calc<30?'0.3 m 미만':(sd.calc/100).toFixed(2)+' m')+(sd.calc<MIN_SAFE?' (최소 1.0 m로 안내)':'')+'. 이 선 밖에서는 1회 촬영 때 받는 양이 자연방사선 '+(s.thMin===60?'1시간':'10분')+' 이하입니다. 옆 병상('+s.nb.toFixed(1)+' m)은 자연방사선 '+bgLabel(dnb)+' 정도입니다.';
   $('#legend').innerHTML = s.view==='zone'
-    ? `<span class="zl"><i style="background:rgb(214,60,50)"></i>가까이 오지 않기</span><span class="zl"><i style="background:rgb(240,170,40)"></i>물러서기</span><span class="zl"><i style="background:rgb(40,170,110)"></i>안전</span>`
+    ? `<span class="zl"><i style="background:rgb(214,60,50)"></i>가까이 오지 않기</span><span class="zl"><i style="background:rgb(240,170,40)"></i>물러서기</span><span class="zl"><i style="background:rgb(40,170,110)"></i>안심</span>`
     : LEVELS.map((l,i)=>`<span><i style="background:rgb(${RAMP[i]})"></i>≥${l}</span>`).join('') + '<span>µGy</span>';
   const n = Math.round(1000/dnb);
   $('#r-nbN').textContent = n.toLocaleString('ko-KR') + '회 촬영';
@@ -489,7 +489,7 @@ function drawCam(){
       });
       const sd=safeDist(m.S1), X=fc.x+sd.show, Y=fc.y, w=c.H[6]*X+c.H[7]*Y+c.H[8];
       if(w>0){ const [u,v]=proj(c.H,X,Y); if(u>0&&v>0&&u<cam.width&&v<cam.height){
-        cctx.font='700 26px "IBM Plex Sans KR", sans-serif'; const t='여기부터 안전 '+(sd.show/100).toFixed(1)+' m', tw=cctx.measureText(t).width+22;
+        cctx.font='700 26px "IBM Plex Sans KR", sans-serif'; const t='여기부터 안심 '+(sd.show/100).toFixed(1)+' m', tw=cctx.measureText(t).width+22;
         const bx=Math.max(4,Math.min(u-tw/2,cam.width-tw-4)); cctx.fillStyle='rgba(12,70,40,.9)'; cctx.fillRect(bx,v-50,tw,38);
         cctx.fillStyle='#fff'; cctx.textAlign='center'; cctx.fillText(t,bx+tw/2,v-22); } }
     }
@@ -597,7 +597,7 @@ $('#cal-clear').addEventListener('click', () => { s.cal=1; delete cals[calKey()]
 /* ---------- 3D / AR ---------- */
 function zoneAt(X, Z){ // metres from field centre on floor
   const m = model(), r = Math.hypot(X, Z)*100, d = doseAt(X*100, Z*100, m.S1);
-  const z = d>=5*s.T ? ['가까이 오지 마세요','#ff6a55'] : (d>=safeT() || r<MIN_SAFE) ? ['물러서세요','#ffbe3d'] : ['안전','#3ee08f'];
+  const z = d>=5*s.T ? ['가까이 오지 마세요','#ff6a55'] : (d>=safeT() || r<MIN_SAFE) ? ['물러서세요','#ffbe3d'] : ['안심','#3ee08f'];
   return {d, r, label:z[0], color:z[1]};
 }
 function probeHTML(X, Z){ const q = zoneAt(X, Z);
@@ -694,7 +694,7 @@ const T3 = (() => {
     const w = new THREE.Mesh(g, new THREE.MeshBasicMaterial({color:0x2fd27f, transparent:true, opacity:.16, side:THREE.DoubleSide, depthWrite:false})); w.renderOrder=4; wall.add(w);
     [0.01, H].forEach(h => { const lg = new THREE.BufferGeometry().setFromPoints(pts.map(([x,y]) => new THREE.Vector3(x/100,h,y/100)));
       wall.add(new THREE.Line(lg, new THREE.LineBasicMaterial({color:0x2fd27f}))); });
-    const sd = safeDist(m.S1), txt = '안전선 '+(sd.show/100).toFixed(1)+' m';
+    const sd = safeDist(m.S1), txt = '안심선 '+(sd.show/100).toFixed(1)+' m';
     [[1,0],[-1,0],[0,1]].forEach(([a,b]) => { const r = sd.show/100; const sp = label(txt, 'rgba(18,122,74,.92)');
       const rr = b ? r*Math.sqrt(1-0.3) : r; sp.position.set(a*rr, 1.25, b*rr); wall.add(sp); });
   }
@@ -770,7 +770,7 @@ const T3 = (() => {
   }
   function placeDemo(p){ arBedTop = null; refresh(); root.position.set(p.x, xr.floorY, p.z); faceCamera(); mark.visible = false; setProps(true); finish('가상 환자로 보여 줍니다'); }
   function finish(note){ xr.step='placed'; root.visible=true; reticle.visible=false; floorMark.visible=false; $('#xr-demo').hidden=true;
-    say(note, '이제 주변 바닥을 비추면 그 위치의 안전 여부가 나옵니다'); xr.noteUntil = performance.now()+2500; }
+    say(note, '이제 주변 바닥을 비추면 그 위치가 안심 구역인지 나옵니다'); xr.noteUntil = performance.now()+2500; }
   document.querySelectorAll('#xr-ui button, #xr-ui select').forEach(b => b.addEventListener('beforexrselect', e => e.preventDefault()));
   $('#xr-rotl').addEventListener('click', () => root.rotation.y += Math.PI/12);
   $('#xr-rotr').addEventListener('click', () => root.rotation.y -= Math.PI/12);
