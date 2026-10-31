@@ -1,0 +1,793 @@
+<title>병상 산란선 맵</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: instrument console — stage (plan / camera) on the left, control rack on the right, stacks on phones */
+:root{
+  --bg:#eef2f2; --surface:#ffffff; --ink:#132326; --muted:#5d7175; --line:#d3dcdd;
+  --accent:#0d6b72; --accent-ink:#ffffff; --grid:#d9e2e3; --room:#f7faf9;
+  --warn:#b4472d;
+  --z-safe:#1f9d63; --z-safe-ink:#137a4a; --z-safe-bg:#e7f5ec; --z-caution:#d99316; --z-danger:#c8432f;
+  --f-body:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1617; --surface:#162123; --ink:#e3ecec; --muted:#93a7aa; --line:#2a3a3c;
+  --accent:#4fb7bd; --accent-ink:#06191b; --grid:#223234; --room:#111c1d; --warn:#f08a6c;
+  --z-safe:#4cc98a; --z-safe-ink:#72e2a8; --z-safe-bg:#12291d; --z-caution:#f0b443; --z-danger:#f07a62; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1617; --surface:#162123; --ink:#e3ecec; --muted:#93a7aa; --line:#2a3a3c;
+  --accent:#4fb7bd; --accent-ink:#06191b; --grid:#223234; --room:#111c1d; --warn:#f08a6c;
+  --z-safe:#4cc98a; --z-safe-ink:#72e2a8; --z-safe-bg:#12291d; --z-caution:#f0b443; --z-danger:#f07a62; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+.safe{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px 24px;align-items:center;background:var(--z-safe-bg);border:1px solid var(--z-safe);border-radius:10px;padding:14px 18px}
+@media (max-width:700px){.safe{grid-template-columns:minmax(0,1fr)}}
+.safe-k{font-size:13px;font-weight:600;color:var(--muted)}
+.safe-d{font-size:22px;font-weight:700;line-height:1.2;margin-top:2px}
+.safe-d b{font-family:var(--f-mono);font-size:46px;font-weight:500;color:var(--z-safe-ink);margin-right:6px;font-variant-numeric:tabular-nums}
+.safe-sub{font-size:13px;color:var(--muted);margin-top:6px}
+.safe-rules{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
+.three-wrap{position:relative;width:100%;border-radius:6px;overflow:hidden;background:var(--room);touch-action:none}
+.three-wrap canvas{display:block;width:100%!important}
+.probe{position:absolute;left:10px;top:10px;right:10px;max-width:max-content;background:rgba(10,24,26,.82);color:#fff;font-size:13px;font-weight:500;padding:7px 11px;border-radius:7px;pointer-events:none;font-variant-numeric:tabular-nums}
+.probe b{font-weight:700}
+#xr-ui{position:fixed;inset:0;pointer-events:none;font-family:var(--f-body);color:#fff;z-index:50}
+#xr-ui .xr-top{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);left:12px;right:12px;display:flex;justify-content:center}
+.xr-read{background:rgba(10,24,26,.85);padding:10px 16px;border-radius:12px;font-size:17px;font-weight:600;text-align:center;line-height:1.35;max-width:560px}
+.xr-read small{display:block;font-size:13px;font-weight:500;opacity:.85}
+.xr-cross{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.4)}
+#xr-ui .xr-bottom{position:absolute;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+#xr-ui button,#xr-ui select{pointer-events:auto;font:600 15px var(--f-body);padding:10px 13px;border-radius:10px;border:0;background:rgba(255,255,255,.92);color:#132326}
+.zl i{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+h1{margin:2px 0 0;font-size:26px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+header p{margin:4px 0 0;color:var(--muted);max-width:62ch}
+.chip{font-size:12px;border:1px solid var(--warn);color:var(--warn);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{appearance:none;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);
+  font:600 14px var(--f-body);padding:8px 12px;cursor:pointer;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media (max-width:880px){.main{grid-template-columns:minmax(0,1fr)}}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:10px;min-width:0}
+.stage canvas{width:100%;height:auto;display:block;border-radius:6px;background:var(--room);touch-action:none}
+.hint{font-size:13px;color:var(--muted)}
+.hint b{color:var(--ink);font-weight:600}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px}
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:500 13px var(--f-body);
+  padding:7px 12px;border-radius:7px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:focus-visible,.tabs button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.msg{font-size:13px;color:var(--warn)}
+.panel{display:grid;gap:12px}
+fieldset{margin:0;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:12px 14px;display:grid;gap:10px;min-width:0}
+legend{font-size:11px;font-family:var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0 4px}
+.row{display:grid;grid-template-columns:96px minmax(0,1fr) 62px;align-items:center;gap:8px}
+.row label{font-size:13px}
+.row output{font-family:var(--f-mono);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.cal{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cal input{width:90px;font:500 13px var(--f-mono);padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.read{display:grid;gap:2px}
+.read div{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.read div:last-child{border-bottom:0}
+.read span:first-child{color:var(--muted);font-size:13px}
+.read span:last-child{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:13px}
+.read .hi span:last-child{color:var(--accent);font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:6px 10px;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.legend i{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.note{font-size:12px;color:var(--muted);max-width:70ch}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{appearance:none;border:0;background:var(--surface);color:var(--ink);font:600 13px var(--f-body);padding:9px 6px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.tag{font-family:var(--f-mono);font-size:11px;color:var(--warn);border:1px solid var(--warn);border-radius:4px;padding:0 5px;margin-left:6px}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Mobile radiography · Scatter map</div>
+      <h1>병상 산란선 맵</h1>
+      <p>이동형 촬영 시 누워 있는 환자 주변의 1회 촬영당 산란선 공기커마 분포를 보여 줍니다.</p>
+    </div>
+    <span class="chip">교육용 근사 모델 · 실측 보정 권장</span>
+  </header>
+
+  <section class="safe" aria-live="polite">
+    <div>
+      <div class="safe-k" id="sf-title">성인 · Chest AP</div>
+      <div class="safe-d"><b id="sf-dist">1.0 m</b>밖이면 안전합니다</div>
+      <div class="safe-sub" id="sf-sub"></div>
+    </div>
+    <ul class="safe-rules">
+      <li>빛이 비추는 곳(조사야) 안으로는 손이나 몸을 넣지 않습니다.</li>
+      <li>"촬영합니다" 신호가 나오면 초록 구역까지 물러섭니다.</li>
+      <li>아이를 잡아야 하면 납치마를 입고, 조사야 밖을 잡습니다.</li>
+    </ul>
+  </section>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-plan" aria-selected="true">평면도</button>
+    <button role="tab" id="tab-cam" aria-selected="false">카메라 오버레이</button>
+    <button role="tab" id="tab-3d" aria-selected="false">3D · AR</button>
+  </div>
+
+  <div class="main">
+    <section class="stage" id="stage-plan">
+      <canvas id="plan" width="1040" height="1040" aria-label="병실 평면도 산란선 분포"></canvas>
+      <div class="hint"><b>기사</b> 표시를 끌어 위치를 옮겨 보세요. 격자 한 칸은 50 cm입니다.</div>
+    </section>
+
+    <section class="stage" id="stage-cam" hidden>
+      <div class="toolbar">
+        <button class="btn primary" id="btn-live">카메라 켜기</button>
+        <label class="btn" for="file">사진 불러오기</label>
+        <input type="file" id="file" accept="image/*" hidden>
+        <button class="btn" id="btn-freeze">화면 고정</button>
+        <button class="btn" id="btn-reset">모서리 다시 지정</button>
+        <button class="btn" id="btn-sample">예시 장면</button>
+      </div>
+      <canvas id="cam" width="1280" height="800" aria-label="카메라 화면 위 산란선 오버레이"></canvas>
+      <div class="hint" id="cam-hint"></div>
+      <div class="msg" id="cam-msg" hidden></div>
+      <video id="video" playsinline muted hidden></video>
+    </section>
+
+    <section class="stage" id="stage-3d" hidden>
+      <div class="toolbar">
+        <button class="btn primary" id="btn-ar">AR 시작</button>
+        <button class="btn" id="btn-props" aria-pressed="true">가상 환자·장비 숨기기</button>
+        <button class="btn" id="btn-view">시점 초기화</button>
+      </div>
+      <div class="three-wrap" id="three-wrap">
+        <div class="probe" id="probe">바닥을 가리키면 그 지점의 선량이 나옵니다</div>
+      </div>
+      <div class="hint">끌어서 돌리고, 두 손가락이나 휠로 확대합니다. <b>AR 시작</b>은 안드로이드 Chrome·삼성 인터넷에서 GitHub Pages 주소로 열었을 때 작동합니다.</div>
+      <div class="msg" id="ar-msg" hidden></div>
+    </section>
+
+    <aside class="panel">
+      <fieldset>
+        <legend>검사 선택</legend>
+        <div class="seg" role="group" aria-label="환자">
+          <button id="age-adult" data-age="adult" aria-pressed="true">성인</button>
+          <button id="age-ped" data-age="ped" aria-pressed="false">소아</button>
+        </div>
+        <div class="seg" role="group" aria-label="검사">
+          <button id="exam-chest" data-exam="chest" aria-pressed="true">Chest AP</button>
+          <button id="exam-abd" data-exam="abd" aria-pressed="false">Abdomen supine</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>안내 기준</legend>
+        <div class="seg" role="group" aria-label="표시 방식">
+          <button id="view-zone" data-view="zone" aria-pressed="true">안전 구역</button>
+          <button id="view-detail" data-view="detail" aria-pressed="false">등선량 상세</button>
+        </div>
+        <div class="seg" role="group" aria-label="안전 기준">
+          <button id="th-1h" data-th="60" aria-pressed="true">자연방사선 1시간</button>
+          <button id="th-10m" data-th="10" aria-pressed="false">자연방사선 10분</button>
+        </div>
+        <div class="hint">안전선 밖에서 1회 촬영 때 받는 양이 고른 기준 이하입니다. 한국인 연평균 자연방사선 약 3 mSv를 기준으로 했습니다.</div>
+      </fieldset>
+
+      <fieldset>
+        <legend>촬영 조건<span class="tag" id="tmp-tag">임시값</span></legend>
+        <div class="row"><label for="kv">관전압</label><input type="range" id="kv" min="40" max="120" step="1" value="85"><output id="o-kv"></output></div>
+        <div class="row"><label for="mas">관전류량</label><input type="range" id="mas" min="0.1" max="20" step="0.01" value="2.5"><output id="o-mas"></output></div>
+        <div class="row"><label for="sid">SID</label><input type="range" id="sid" min="80" max="150" step="5" value="100"><output id="o-sid"></output></div>
+        <div class="row"><label for="fw">조사야 가로</label><input type="range" id="fw" min="8" max="43" step="0.1" value="35"><output id="o-fw"></output></div>
+        <div class="row"><label for="fh">조사야 세로</label><input type="range" id="fh" min="8" max="43" step="0.1" value="35"><output id="o-fh"></output></div>
+        <div class="row"><label for="thick">환자 두께</label><input type="range" id="thick" min="6" max="35" step="1" value="22"><output id="o-thick"></output></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>배치</legend>
+        <div class="row"><label for="fcy">조사야 중심</label><input type="range" id="fcy" min="10" max="160" step="1" value="45"><output id="o-fcy"></output></div>
+        <div class="row"><label for="nb">옆 병상 간격</label><input type="range" id="nb" min="1" max="2.4" step="0.1" value="2"><output id="o-nb"></output></div>
+        <div class="row"><label for="bedL">침대 길이</label><input type="range" id="bedL" min="100" max="220" step="5" value="200"><output id="o-bedL"></output></div>
+        <div class="row"><label for="bedW">침대 폭</label><input type="range" id="bedW" min="60" max="110" step="5" value="90"><output id="o-bedW"></output></div>
+        <div class="hint">조사야 중심은 침대 머리쪽 끝에서 잰 거리입니다.</div>
+      </fieldset>
+
+      <fieldset>
+        <legend>판독값 · 1회 촬영</legend>
+        <div class="read">
+          <div><span>입사 공기커마</span><span id="r-kin"></span></div>
+          <div><span>측방 1 m 산란선</span><span id="r-1m"></span></div>
+          <div class="hi"><span>기사 위치</span><span id="r-tech"></span></div>
+          <div class="hi"><span>옆 병상 환자</span><span id="r-nb"></span></div>
+          <div><span>옆 환자 1 mSv까지</span><span id="r-nbN"></span></div>
+          <div><span>0.05 µGy 경계 (측방)</span><span id="r-edge"></span></div>
+        </div>
+        <div class="legend" id="legend"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>실측 보정</legend>
+        <div class="hint">선량계로 잰 측방 1 m 값을 넣으면 모델 전체를 그 값에 맞춥니다.</div>
+        <div class="cal">
+          <input type="number" id="cal-in" step="0.01" min="0" placeholder="µGy" aria-label="측방 1 m 실측값 (µGy)">
+          <button class="btn" id="cal-apply">보정 적용</button>
+          <button class="btn" id="cal-clear">초기화</button>
+        </div>
+        <div class="hint">보정 계수 <b id="cal-k">1.00</b> · 검사 조합마다 따로 저장됩니다.</div>
+      </fieldset>
+    </aside>
+  </div>
+
+  <div id="xr-ui" hidden>
+    <div class="xr-top"><div class="xr-read" id="xr-read">바닥을 천천히 비추세요</div></div>
+    <div class="xr-cross" aria-hidden="true"></div>
+    <div class="xr-bottom">
+      <select id="xr-preset" aria-label="검사">
+        <option value="adult-chest">성인 Chest AP</option>
+        <option value="adult-abd">성인 Abdomen</option>
+        <option value="ped-chest">소아 Chest AP</option>
+        <option value="ped-abd">소아 Abdomen</option>
+      </select>
+      <button id="xr-rotl" aria-label="왼쪽으로 회전">⟲</button>
+      <button id="xr-rotr" aria-label="오른쪽으로 회전">⟳</button>
+      <button id="xr-place">다시 놓기</button>
+      <button id="xr-props">환자 숨기기</button>
+      <button id="xr-end">종료</button>
+    </div>
+  </div>
+
+  <p class="note">계산식: 측방 1 m 산란선 = 검사 계수(흉부 60, 복부 130 nGy/mAs, 80 kV·35×43 cm 기준) × mAs × (kV/80)² × 조사야 면적비 × 두께 보정 × 거리 역제곱, 체축 방향 30% 감쇠. 계수는 이동형 흉부·복부 실측 문헌값(Bioengineering 2023; Vajira Med J 2025; Radiat Prot Dosim 2024)에 맞췄습니다. 소아는 문헌 간 차이가 커서 실측 보정을 특히 권합니다. '1 mSv까지'는 공기커마를 유효선량으로 단순 환산한 값입니다. 의료기기가 아니며, 방호 교육용입니다.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const LEVELS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5];
+const RAMP = [[214,240,236],[255,246,190],[255,236,160],[253,205,110],[249,155,80],[236,100,70],[214,50,80],[160,30,100],[95,20,110]];
+const H_OFF = 20;           // vertical offset (cm) between scatter centre and measurement plane
+const s = {kv:85,mas:2.5,sid:100,fw:35,fh:35,thick:22,fcy:45,nb:2,bedL:200,bedW:90,cal:1,age:'adult',exam:'chest',tech:{x:-85,y:195}};
+/* 프리셋: 병원 이동형 장비 실제 조건 (Samsung, 2026-10). 성인=Medium, 소아=≤8 kg/Baby. 성인 조사야는 14×17인치 디텍터 기준 35×43 cm 가정 */
+const PRESETS = {
+  adult:{ bed:{bedL:200,bedW:90},
+    chest:{kv:90, mas:2,   sid:100, fw:35, fh:43, thick:22, fcy:45},
+    abd:  {kv:73, mas:10,  sid:100, fw:35, fh:43, thick:22, fcy:80} },
+  ped:{ bed:{bedL:120,bedW:65},
+    chest:{kv:50, mas:1.6,  sid:100, fw:17.6, fh:17.6, thick:11, fcy:27},
+    abd:  {kv:55, mas:2.52, sid:100, fw:17.6, fh:17.6, thick:11, fcy:40} }
+};
+const BODY = { adult:{headY:18, headR:11, torsoY:32, torsoL:140, torsoW:44},
+               ped:  {headY:12, headR:7,  torsoY:21, torsoL:42,  torsoW:20} };
+const cals = {};
+/* 안전 기준: 자연방사선 3 mSv/년 → 0.342 µSv/시간. 공기커마 ≈ 유효선량으로 단순 환산 */
+const BG_PER_MIN = 3000/8760/60;
+s.view = 'zone'; s.thMin = 60; s.T = BG_PER_MIN*60;
+function bgLabel(uGyV){ const m = uGyV/BG_PER_MIN;
+  return m<1 ? '1분 미만' : m<60 ? Math.round(m)+'분' : m<1440 ? (m/60).toFixed(1)+'시간' : (m/1440).toFixed(1)+'일'; }
+/* 안내용 최소 안전거리: 계산값이 작아도 1.0 m 미만으로는 안내하지 않음 (소아 문헌값 편차 대비) */
+const MIN_SAFE = 100;
+function paint(dose, r){
+  if(s.view==='zone'){
+    if(dose>=5*s.T) return [214,60,50,170];
+    if(dose>=safeT() || r<MIN_SAFE) return [240,170,40,150];
+    return [40,170,110,60];
+  }
+  const b = band(dose); if(b<0) return null; const col = RAMP[b]; return [col[0],col[1],col[2],110+b*15];
+}
+function contour(S1, T, floor=0){ const K=(1e4+H_OFF*H_OFF)*S1/T, pts=[];
+  for(let a=0;a<=360;a+=4){ const t=a*Math.PI/180, sn=Math.sin(t), r2=K*(1-0.3*sn*sn)-H_OFF*H_OFF;
+    if(r2<=900 && !floor) return null;
+    const r=Math.max(r2>0?Math.sqrt(r2):0, floor); pts.push([Math.cos(t)*r, sn*r]); } return pts; }
+function safeDist(S1){ const r2=(1e4+H_OFF*H_OFF)*S1/s.T - H_OFF*H_OFF; const calc = r2>0 ? Math.sqrt(r2) : 0;
+  const r = Math.max(calc, MIN_SAFE); return {calc, r, show:Math.ceil(r/50)*50}; }
+/* 화면에 쓰는 안전선은 0.5 m 단위로 올린 거리(show)에 맞춤 → 안내 숫자·선·색이 모두 일치 */
+let _st = null;
+function safeT(){ if(_st===null){ const S1 = model().S1, sd = safeDist(S1); _st = Math.min(s.T, (1e4+H_OFF*H_OFF)*S1/(sd.show*sd.show+H_OFF*H_OFF)); } return _st; }
+const fmt = {kv:v=>v+' kV',mas:v=>v+' mAs',sid:v=>v+' cm',fw:v=>v+' cm',fh:v=>v+' cm',thick:v=>v+' cm',fcy:v=>v+' cm',nb:v=>(+v).toFixed(1)+' m',bedL:v=>v+' cm',bedW:v=>v+' cm'};
+
+/* 검사별 기준 계수: 80 kV, 35×43 cm, 두께 22 cm, SID 100 cm일 때 측방 1 m 산란선 (nGy/mAs)
+   흉부 60: 문헌 실측 35~130 nGy/mAs 범위의 중간값 / 복부 130: 문헌 약 120 nGy/mAs */
+const EXAM = { chest:60, abd:130 };
+const REF = {A:35*43, T:22, FSD:73};
+function model(){
+  const FSD = Math.max(30, s.sid - s.thick - 5);
+  const Kin = 50*Math.pow(s.kv/80,2)*s.mas*Math.pow(100/FSD,2);
+  const S1raw = EXAM[s.exam]/1000 * Math.pow(s.kv/80,2) * s.mas * (s.fw*s.fh/REF.A)
+              * Math.pow(s.thick/REF.T,0.6) * Math.pow(REF.FSD/FSD,2);
+  return {FSD, Kin, S1raw, S1:S1raw*s.cal};
+}
+function doseAt(dx, dy, S1){
+  const r2 = Math.max(dx*dx+dy*dy+H_OFF*H_OFF, 900);
+  const c = dy*dy/(dx*dx+dy*dy+1);
+  return S1*(1e4+H_OFF*H_OFF)/r2*(1-0.3*c);
+}
+function band(d){ let i=-1; for(let k=0;k<LEVELS.length;k++) if(d>=LEVELS[k]) i=k; return i; }
+const fieldCenter = () => ({x:s.bedW/2, y:s.fcy});
+function css(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function uGy(v){ return v>=10? v.toFixed(0)+' µGy' : v>=1? v.toFixed(2)+' µGy' : (v*1000).toFixed(0)+' nGy'; }
+
+/* legend */
+$('#legend').innerHTML = LEVELS.map((l,i)=>`<span><i style="background:rgb(${RAMP[i]})"></i>≥${l}</span>`).join('') + '<span>µGy</span>';
+
+/* ---------- Plan view ---------- */
+const plan = $('#plan'), pctx = plan.getContext('2d');
+const ROOM = 520, PK = plan.width/ROOM, BED0 = {x:215, y:160};
+const heatPlan = document.createElement('canvas'); heatPlan.width = heatPlan.height = 260;
+const toPx = (bx,by) => [(bx+BED0.x)*PK, (by+BED0.y)*PK];
+
+function drawPlan(){
+  const m = model(), fc = fieldCenter();
+  const W = plan.width;
+  pctx.clearRect(0,0,W,W);
+  pctx.fillStyle = css('--room'); pctx.fillRect(0,0,W,W);
+  // grid
+  pctx.strokeStyle = css('--grid'); pctx.lineWidth = 1;
+  for(let c=0;c<=ROOM;c+=50){ const p=c*PK; pctx.beginPath(); pctx.moveTo(p,0); pctx.lineTo(p,W); pctx.moveTo(0,p); pctx.lineTo(W,p); pctx.stroke(); }
+  // heat
+  const hc = heatPlan.getContext('2d'), img = hc.createImageData(260,260), d = img.data;
+  for(let j=0;j<260;j++) for(let i=0;i<260;i++){
+    const rx = i*2+1 - BED0.x - fc.x, ry = j*2+1 - BED0.y - fc.y;
+    const p = paint(doseAt(rx, ry, m.S1), Math.hypot(rx, ry)); if(!p) continue;
+    const o = (j*260+i)*4; d[o]=p[0]; d[o+1]=p[1]; d[o+2]=p[2]; d[o+3]=p[3];
+  }
+  hc.putImageData(img,0,0);
+  pctx.imageSmoothingEnabled = true; pctx.drawImage(heatPlan,0,0,W,W);
+
+  const ink = css('--ink'), muted = css('--muted'), surf = css('--surface'), acc = css('--accent');
+  // beds
+  const bed = (bx) => { const [x,y]=toPx(bx,0); pctx.fillStyle = surf; pctx.globalAlpha=.55; pctx.fillRect(x,y,s.bedW*PK,s.bedL*PK); pctx.globalAlpha=1;
+    pctx.strokeStyle = ink; pctx.lineWidth = 2; pctx.strokeRect(x,y,s.bedW*PK,s.bedL*PK); };
+  bed(0);
+  const nbx = s.bedW/2 + s.nb*100 - s.bedW/2; bed(nbx);
+  // patient (head + torso)
+  const B = BODY[s.age];
+  const pat = (cx) => { pctx.strokeStyle = muted; pctx.lineWidth = 2;
+    const [hx,hy]=toPx(cx,B.headY); pctx.beginPath(); pctx.arc(hx,hy,B.headR*PK,0,Math.PI*2); pctx.stroke();
+    const [tx,ty]=toPx(cx-B.torsoW/2,B.torsoY); pctx.beginPath(); pctx.roundRect(tx,ty,B.torsoW*PK,B.torsoL*PK,8*PK); pctx.stroke(); };
+  pat(s.bedW/2); pat(nbx + s.bedW/2);
+  // field
+  const [fx,fy]=toPx(fc.x-s.fw/2, fc.y-s.fh/2);
+  pctx.setLineDash([8,6]); pctx.strokeStyle = acc; pctx.lineWidth = 2.5; pctx.strokeRect(fx,fy,s.fw*PK,s.fh*PK); pctx.setLineDash([]);
+  // mobile unit
+  const [ux,uy]=toPx(-70, fc.y-35); pctx.fillStyle = muted; pctx.globalAlpha=.35; pctx.fillRect(ux,uy,55*PK,70*PK); pctx.globalAlpha=1;
+  pctx.strokeStyle = muted; pctx.strokeRect(ux,uy,55*PK,70*PK);
+  label('이동형 장치', ux+27*PK, uy-10, muted, 'center');
+  if(s.view==='zone'){
+    [[5*s.T, css('--z-danger'), [10,8], 0], [safeT(), css('--z-safe'), [], MIN_SAFE]].forEach(([T,col,dash,fl]) => {
+      const pts = contour(m.S1, T, fl); if(!pts) return;
+      pctx.beginPath(); pts.forEach(([x,y],i)=>{ const [px,py]=toPx(fc.x+x, fc.y+y); i?pctx.lineTo(px,py):pctx.moveTo(px,py); }); pctx.closePath();
+      pctx.strokeStyle=col; pctx.lineWidth=4; pctx.setLineDash(dash); pctx.stroke(); pctx.setLineDash([]);
+    });
+    const sd = safeDist(m.S1), rd = sd.show*0.92;
+    const [lx,ly] = toPx(fc.x+rd*Math.SQRT1_2, fc.y+rd*Math.SQRT1_2+20);
+    if(lx < W-60 && ly < W-40){ pctx.font='700 20px "IBM Plex Sans KR", sans-serif'; const t='안전선 '+(sd.show/100).toFixed(1)+' m', tw=pctx.measureText(t).width+16;
+      pctx.fillStyle=css('--z-safe'); pctx.fillRect(Math.min(lx-tw/2, W-tw-6), ly-44, tw, 30); pctx.fillStyle='#ffffff'; pctx.textAlign='center'; pctx.fillText(t, Math.min(lx, W-tw/2-6), ly-22); }
+  }
+  // level labels along lateral axis (right of field)
+  pctx.font = '500 20px "IBM Plex Mono", monospace';
+  if(s.view==='detail') LEVELS.forEach(L => {
+    const r2 = (1e4+H_OFF*H_OFF)*m.S1/L - H_OFF*H_OFF; if(r2<=900) return;
+    const xh = Math.sqrt(r2); const [lx,ly] = toPx(fc.x+xh, fc.y);
+    if(lx> W-30) return;
+    pctx.fillStyle = surf; const t = String(L), tw = pctx.measureText(t).width+10;
+    pctx.fillRect(lx-tw/2, ly-13, tw, 24); pctx.fillStyle = ink; pctx.textAlign='center'; pctx.fillText(t, lx, ly+6);
+  });
+  // tech
+  const [tx,ty] = toPx(s.tech.x, s.tech.y);
+  pctx.strokeStyle = acc; pctx.setLineDash([4,6]); pctx.lineWidth=1.5; const [cx,cy]=toPx(fc.x,fc.y);
+  pctx.beginPath(); pctx.moveTo(cx,cy); pctx.lineTo(tx,ty); pctx.stroke(); pctx.setLineDash([]);
+  pctx.fillStyle = acc; pctx.beginPath(); pctx.arc(tx,ty,16,0,Math.PI*2); pctx.fill();
+  pctx.fillStyle = css('--accent-ink'); pctx.font='600 16px "IBM Plex Sans KR", sans-serif'; pctx.textAlign='center'; pctx.fillText('기사',tx,ty+6);
+  const td = Math.hypot(s.tech.x-fc.x, s.tech.y-fc.y)/100;
+  label(td.toFixed(2)+' m', (cx+tx)/2+14, (cy+ty)/2, ink, 'left');
+  // neighbour patient marker
+  const [nx,ny] = toPx(nbx + s.bedW/2, fc.y);
+  pctx.strokeStyle = ink; pctx.lineWidth=2; pctx.beginPath(); pctx.arc(nx,ny,10,0,Math.PI*2); pctx.stroke();
+  label('옆 환자', nx, ny-18, ink, 'center');
+  // scale
+  pctx.fillStyle = ink; pctx.fillRect(24, W-30, 100*PK, 4); label('1 m', 24, W-40, ink, 'left');
+}
+function label(t,x,y,color,align){ pctx.font='500 18px "IBM Plex Sans KR", sans-serif'; pctx.textAlign=align; pctx.fillStyle=color; pctx.fillText(t,x,y); }
+
+let dragTech = false;
+function planPt(e){ const r = plan.getBoundingClientRect(); return [(e.clientX-r.left)*plan.width/r.width, (e.clientY-r.top)*plan.height/r.height]; }
+plan.addEventListener('pointerdown', e => { const [x,y]=planPt(e); const [tx,ty]=toPx(s.tech.x,s.tech.y);
+  if(Math.hypot(x-tx,y-ty) < 40){ dragTech = true; plan.setPointerCapture(e.pointerId); } });
+plan.addEventListener('pointermove', e => { if(!dragTech) return; const [x,y]=planPt(e);
+  s.tech.x = Math.min(ROOM-BED0.x-10, Math.max(-BED0.x+10, x/PK-BED0.x)); s.tech.y = Math.min(ROOM-BED0.y-10, Math.max(-BED0.y+10, y/PK-BED0.y)); update(); });
+plan.addEventListener('pointerup', () => dragTech=false);
+plan.addEventListener('pointercancel', () => dragTech=false);
+
+/* ---------- Readouts ---------- */
+function readouts(){
+  const m = model(), fc = fieldCenter();
+  $('#r-kin').textContent = uGy(m.Kin);
+  $('#r-1m').textContent = uGy(doseAt(100,0,m.S1));
+  const td = Math.hypot(s.tech.x-fc.x, s.tech.y-fc.y)/100;
+  const dt = doseAt(s.tech.x-fc.x, s.tech.y-fc.y, m.S1);
+  $('#r-tech').textContent = uGy(dt) + ' · ' + td.toFixed(1)+' m · 자연 '+bgLabel(dt);
+  const dnb = doseAt(s.nb*100, 0, m.S1);
+  $('#r-nb').textContent = uGy(dnb) + ' · ' + s.nb.toFixed(1)+' m · 자연 '+bgLabel(dnb);
+  const sd = safeDist(m.S1);
+  $('#sf-title').textContent = (s.age==='adult'?'성인':'소아 (≤8 kg)')+' · '+(s.exam==='chest'?'Chest AP':'Abdomen supine')+' · 조사야 중심에서';
+  $('#sf-dist').textContent = (sd.show/100).toFixed(1)+' m';
+  $('#sf-sub').textContent = '계산상 경계 '+(sd.calc<30?'0.3 m 미만':(sd.calc/100).toFixed(2)+' m')+(sd.calc<MIN_SAFE?' (최소 1.0 m로 안내)':'')+'. 이 선 밖에서는 1회 촬영 때 받는 양이 자연방사선 '+(s.thMin===60?'1시간':'10분')+' 이하입니다. 옆 병상('+s.nb.toFixed(1)+' m)은 자연방사선 '+bgLabel(dnb)+' 정도입니다.';
+  $('#legend').innerHTML = s.view==='zone'
+    ? `<span class="zl"><i style="background:rgb(214,60,50)"></i>가까이 오지 않기</span><span class="zl"><i style="background:rgb(240,170,40)"></i>물러서기</span><span class="zl"><i style="background:rgb(40,170,110)"></i>안전</span>`
+    : LEVELS.map((l,i)=>`<span><i style="background:rgb(${RAMP[i]})"></i>≥${l}</span>`).join('') + '<span>µGy</span>';
+  const n = Math.round(1000/dnb);
+  $('#r-nbN').textContent = n.toLocaleString('ko-KR') + '회 촬영';
+  const r2 = (1e4+H_OFF*H_OFF)*m.S1/0.05 - H_OFF*H_OFF;
+  $('#r-edge').textContent = r2>900 ? (Math.sqrt(r2)/100).toFixed(2)+' m' : '0.3 m 이내';
+  $('#cal-k').textContent = s.cal.toFixed(2);
+}
+
+/* ---------- Camera overlay ---------- */
+const cam = $('#cam'), cctx = cam.getContext('2d'), video = $('#video');
+const base = document.createElement('canvas'), heatCam = document.createElement('canvas');
+const CORNER_NAMES = ['머리쪽 · 화면 왼쪽','머리쪽 · 화면 오른쪽','발쪽 · 화면 오른쪽','발쪽 · 화면 왼쪽'];
+const c = {mode:'sample', frozen:false, corners:[], H:null, Hinv:null, heatKey:'', raf:0, drag:-1, stream:null};
+
+function solveH(src, dst){
+  const A=[], b=[];
+  for(let i=0;i<4;i++){ const [x,y]=src[i], [u,v]=dst[i];
+    A.push([x,y,1,0,0,0,-u*x,-u*y]); b.push(u); A.push([0,0,0,x,y,1,-v*x,-v*y]); b.push(v); }
+  for(let i=0;i<8;i++){ let p=i; for(let r=i+1;r<8;r++) if(Math.abs(A[r][i])>Math.abs(A[p][i])) p=r;
+    [A[i],A[p]]=[A[p],A[i]]; [b[i],b[p]]=[b[p],b[i]]; if(Math.abs(A[i][i])<1e-12) return null;
+    for(let r=0;r<8;r++){ if(r===i) continue; const f=A[r][i]/A[i][i]; for(let k=i;k<8;k++) A[r][k]-=f*A[i][k]; b[r]-=f*b[i]; } }
+  const h = b.map((v,i)=>v/A[i][i]); return [h[0],h[1],h[2],h[3],h[4],h[5],h[6],h[7],1];
+}
+function inv3(m){ const [a,b,cc,d,e,f,g,h,i]=m; const A=e*i-f*h, B=-(d*i-f*g), C=d*h-e*g; const det=a*A+b*B+cc*C; if(Math.abs(det)<1e-12) return null;
+  return [A/det,-(b*i-cc*h)/det,(b*f-cc*e)/det,B/det,(a*i-cc*g)/det,-(a*f-cc*d)/det,C/det,-(a*h-b*g)/det,(a*e-b*d)/det]; }
+function proj(H,x,y){ const w=H[6]*x+H[7]*y+H[8]; return [(H[0]*x+H[1]*y+H[2])/w,(H[3]*x+H[4]*y+H[5])/w]; }
+
+function computeH(){
+  if(c.corners.length<4){ c.H=c.Hinv=null; return; }
+  const src = [[0,0],[s.bedW,0],[s.bedW,s.bedL],[0,s.bedL]];
+  c.H = solveH(src, c.corners); c.Hinv = c.H && inv3(c.H); c.heatKey='';
+}
+function buildHeat(){
+  const m = model(), fc = fieldCenter();
+  const key = [cam.width,cam.height,m.S1,fc.x,fc.y,s.view,s.T,c.Hinv&&c.Hinv.join()].join('|');
+  if(key===c.heatKey) return; c.heatKey = key;
+  const step=4, gw=Math.ceil(cam.width/step), gh=Math.ceil(cam.height/step);
+  heatCam.width=gw; heatCam.height=gh;
+  const hc=heatCam.getContext('2d'), img=hc.createImageData(gw,gh), d=img.data, Hi=c.Hinv;
+  for(let j=0;j<gh;j++) for(let i=0;i<gw;i++){
+    const u=i*step+2, v=j*step+2, w=Hi[6]*u+Hi[7]*v+Hi[8]; if(w<=0) continue;
+    const x=(Hi[0]*u+Hi[1]*v+Hi[2])/w, y=(Hi[3]*u+Hi[4]*v+Hi[5])/w;
+    const p=paint(doseAt(x-fc.x, y-fc.y, m.S1), Math.hypot(x-fc.x, y-fc.y)); if(!p) continue;
+    const o=(j*gw+i)*4; d[o]=p[0]; d[o+1]=p[1]; d[o+2]=p[2]; d[o+3]=Math.min(255,p[3]+20);
+  }
+  hc.putImageData(img,0,0);
+}
+function drawCam(){
+  cctx.clearRect(0,0,cam.width,cam.height);
+  if(c.mode==='live' && !c.frozen && video.readyState>=2) cctx.drawImage(video,0,0,cam.width,cam.height);
+  else cctx.drawImage(base,0,0,cam.width,cam.height);
+  if(c.Hinv){
+    buildHeat(); cctx.imageSmoothingEnabled=true; cctx.globalAlpha=.72; cctx.drawImage(heatCam,0,0,cam.width,cam.height); cctx.globalAlpha=1;
+    const fc=fieldCenter(); const poly=(pts,stroke,dash,lw)=>{ cctx.beginPath(); pts.forEach((p,i)=>{const [u,v]=proj(c.H,p[0],p[1]); i?cctx.lineTo(u,v):cctx.moveTo(u,v);}); cctx.closePath();
+      cctx.setLineDash(dash); cctx.strokeStyle=stroke; cctx.lineWidth=lw; cctx.stroke(); cctx.setLineDash([]); };
+    poly([[0,0],[s.bedW,0],[s.bedW,s.bedL],[0,s.bedL]],'#ffffff',[],3);
+    if(s.view==='zone'){
+      const m=model();
+      [[5*s.T,'#ff6a55',[12,8],0],[safeT(),'#3ee08f',[],MIN_SAFE]].forEach(([T,col,dash,fl])=>{
+        const pts=contour(m.S1,T,fl); if(!pts) return; cctx.beginPath(); let pen=false;
+        pts.forEach(([x,y])=>{ const X=fc.x+x, Y=fc.y+y, w=c.H[6]*X+c.H[7]*Y+c.H[8]; if(w<=0){ pen=false; return; }
+          const [u,v]=proj(c.H,X,Y); pen?cctx.lineTo(u,v):cctx.moveTo(u,v); pen=true; });
+        cctx.setLineDash(dash); cctx.strokeStyle=col; cctx.lineWidth=5; cctx.stroke(); cctx.setLineDash([]);
+      });
+      const sd=safeDist(m.S1), X=fc.x+sd.show, Y=fc.y, w=c.H[6]*X+c.H[7]*Y+c.H[8];
+      if(w>0){ const [u,v]=proj(c.H,X,Y); if(u>0&&v>0&&u<cam.width&&v<cam.height){
+        cctx.font='700 26px "IBM Plex Sans KR", sans-serif'; const t='여기부터 안전 '+(sd.show/100).toFixed(1)+' m', tw=cctx.measureText(t).width+22;
+        const bx=Math.max(4,Math.min(u-tw/2,cam.width-tw-4)); cctx.fillStyle='rgba(12,70,40,.9)'; cctx.fillRect(bx,v-50,tw,38);
+        cctx.fillStyle='#fff'; cctx.textAlign='center'; cctx.fillText(t,bx+tw/2,v-22); } }
+    }
+    poly([[fc.x-s.fw/2,fc.y-s.fh/2],[fc.x+s.fw/2,fc.y-s.fh/2],[fc.x+s.fw/2,fc.y+s.fh/2],[fc.x-s.fw/2,fc.y+s.fh/2]],'#7fe3e8',[10,8],3);
+    // 1 m / 2 m distance ticks on the plane
+    cctx.font='600 22px "IBM Plex Mono", monospace'; cctx.textAlign='center';
+    [100,200].forEach(r=>{ [[fc.x+r+0, fc.y],[fc.x-r, fc.y]].forEach(([x,y])=>{ const w=c.H[6]*x+c.H[7]*y+c.H[8]; if(w<=0) return; const [u,v]=proj(c.H,x,y);
+      if(u<0||v<0||u>cam.width||v>cam.height) return; cctx.fillStyle='rgba(0,0,0,.55)'; cctx.fillRect(u-30,v-16,60,30); cctx.fillStyle='#fff'; cctx.fillText((r/100)+' m',u,v+7); }); });
+  }
+  c.corners.forEach((p,i)=>{ cctx.fillStyle='#0d6b72'; cctx.strokeStyle='#fff'; cctx.lineWidth=3; cctx.beginPath(); cctx.arc(p[0],p[1],14,0,Math.PI*2); cctx.fill(); cctx.stroke();
+    cctx.fillStyle='#fff'; cctx.font='600 16px "IBM Plex Mono", monospace'; cctx.textAlign='center'; cctx.fillText(i+1,p[0],p[1]+6); });
+  hint();
+}
+function hint(){
+  const n=c.corners.length;
+  $('#cam-hint').innerHTML = n<4 ? `침대 윗면 모서리를 순서대로 누르세요: <b>${n+1}/4 ${CORNER_NAMES[n]}</b>`
+    : `모서리 점을 끌어 맞출 수 있습니다. 흰 선은 침대, 점선은 조사야입니다.${c.mode==='live'&&!c.frozen?' 휴대폰을 움직이면 다시 지정해야 하니 <b>화면 고정</b>을 권합니다.':''}`;
+}
+function loop(){ drawCam(); c.raf = (c.mode==='live' && !c.frozen) ? requestAnimationFrame(loop) : 0; }
+function setSize(w,h){ const k=Math.min(1, 1280/w); cam.width=Math.round(w*k); cam.height=Math.round(h*k); base.width=cam.width; base.height=cam.height; }
+
+function drawSample(){
+  setSize(1280,800); c.mode='sample'; c.frozen=true; stopStream();
+  const g=base.getContext('2d'), W=1280, Hh=800;
+  const wall=g.createLinearGradient(0,0,0,300); wall.addColorStop(0,'#d7dcd8'); wall.addColorStop(1,'#c7cdc9'); g.fillStyle=wall; g.fillRect(0,0,W,300);
+  const floor=g.createLinearGradient(0,300,0,Hh); floor.addColorStop(0,'#a9b3b1'); floor.addColorStop(1,'#7e8a88'); g.fillStyle=floor; g.fillRect(0,300,W,Hh-300);
+  g.strokeStyle='rgba(255,255,255,.18)'; g.lineWidth=2; for(let k=-8;k<=8;k++){ g.beginPath(); g.moveTo(640+k*60,300); g.lineTo(640+k*260,Hh); g.stroke(); }
+  const pts=[[505,330],[775,330],[905,690],[375,690]];
+  g.fillStyle='#5b6466'; g.beginPath(); g.moveTo(375,690); g.lineTo(905,690); g.lineTo(905,740); g.lineTo(375,740); g.fill();
+  g.fillStyle='#eef1f0'; g.beginPath(); pts.forEach((p,i)=>i?g.lineTo(...p):g.moveTo(...p)); g.closePath(); g.fill();
+  g.fillStyle='#ffffff'; g.beginPath(); g.ellipse(640,358,70,18,0,0,Math.PI*2); g.fill();
+  g.fillStyle='#e2b99a'; g.beginPath(); g.ellipse(640,362,26,16,0,0,Math.PI*2); g.fill();
+  g.fillStyle='#8fb1c4'; g.beginPath(); g.moveTo(585,385); g.lineTo(695,385); g.lineTo(760,670); g.lineTo(520,670); g.closePath(); g.fill();
+  g.fillStyle='#6c7476'; g.fillRect(170,330,150,250); g.fillStyle='#4b5254'; g.fillRect(320,360,170,18); g.fillRect(470,350,46,40);
+  g.fillStyle='rgba(0,0,0,.5)'; g.fillRect(16,16,150,40); g.fillStyle='#fff'; g.font='600 22px "IBM Plex Sans KR", sans-serif'; g.textAlign='left'; g.fillText('예시 장면',32,44);
+  c.corners = pts.map(p=>p.slice()); computeH(); $('#cam-msg').hidden=true; drawCam();
+}
+function stopStream(){ if(c.stream){ c.stream.getTracks().forEach(t=>t.stop()); c.stream=null; } if(c.raf) cancelAnimationFrame(c.raf); c.raf=0; }
+
+$('#btn-live').addEventListener('click', async () => {
+  const msg=$('#cam-msg'); msg.hidden=true;
+  try{
+    if(!navigator.mediaDevices?.getUserMedia) throw new Error('unsupported');
+    stopStream();
+    c.stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}, width:{ideal:1280}}, audio:false});
+    video.srcObject = c.stream; await video.play();
+    setSize(video.videoWidth||1280, video.videoHeight||720);
+    c.mode='live'; c.frozen=false; c.corners=[]; computeH(); $('#btn-freeze').textContent='화면 고정'; loop();
+  }catch(err){
+    msg.textContent='이 화면에서는 카메라를 쓸 수 없습니다. 사진 불러오기를 쓰거나, 이 HTML을 GitHub Pages 같은 HTTPS 주소에 올려 열어 주세요.';
+    msg.hidden=false;
+  }
+});
+$('#btn-freeze').addEventListener('click', () => {
+  if(c.mode!=='live') return;
+  if(!c.frozen){ base.getContext('2d').drawImage(video,0,0,base.width,base.height); c.frozen=true; $('#btn-freeze').textContent='고정 해제'; drawCam(); }
+  else { c.frozen=false; $('#btn-freeze').textContent='화면 고정'; loop(); }
+});
+$('#btn-reset').addEventListener('click', () => { c.corners=[]; computeH(); drawCam(); });
+$('#btn-sample').addEventListener('click', drawSample);
+$('#file').addEventListener('change', e => {
+  const f=e.target.files[0]; if(!f) return; const img=new Image();
+  img.onload=()=>{ stopStream(); setSize(img.naturalWidth,img.naturalHeight); base.getContext('2d').drawImage(img,0,0,base.width,base.height);
+    c.mode='photo'; c.frozen=true; c.corners=[]; computeH(); $('#cam-msg').hidden=true; drawCam(); URL.revokeObjectURL(img.src); };
+  img.src=URL.createObjectURL(f); e.target.value='';
+});
+function camPt(e){ const r=cam.getBoundingClientRect(); return [(e.clientX-r.left)*cam.width/r.width,(e.clientY-r.top)*cam.height/r.height]; }
+cam.addEventListener('pointerdown', e => {
+  const p=camPt(e); const hit=c.corners.findIndex(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<34*cam.width/cam.getBoundingClientRect().width);
+  if(hit>=0){ c.drag=hit; cam.setPointerCapture(e.pointerId); return; }
+  if(c.corners.length<4){ c.corners.push(p); computeH(); if(!c.raf) drawCam(); }
+});
+cam.addEventListener('pointermove', e => { if(c.drag<0) return; c.corners[c.drag]=camPt(e); computeH(); if(!c.raf) drawCam(); });
+cam.addEventListener('pointerup', () => c.drag=-1);
+cam.addEventListener('pointercancel', () => c.drag=-1);
+
+/* ---------- Controls, tabs ---------- */
+const sync = {};
+Object.keys(fmt).forEach(k => {
+  const el=$('#'+k); const out=$('#o-'+k);
+  sync[k]=()=>{ s[k]=parseFloat(el.value); out.textContent=fmt[k](el.value); };
+  sync[k](); el.addEventListener('input', ()=>{ sync[k](); if(k==='bedW'||k==='bedL') computeH(); update(); });
+});
+const calKey = () => s.age+'-'+s.exam;
+function applyPreset(){
+  const p = Object.assign({}, PRESETS[s.age].bed, PRESETS[s.age][s.exam]);
+  $('#tmp-tag').hidden = !p.temp; delete p.temp;
+  Object.entries(p).forEach(([k,v]) => { $('#'+k).value = v; sync[k](); });
+  document.querySelectorAll('[data-age]').forEach(b => b.setAttribute('aria-pressed', b.dataset.age===s.age));
+  document.querySelectorAll('[data-exam]').forEach(b => b.setAttribute('aria-pressed', b.dataset.exam===s.exam));
+  s.cal = cals[calKey()] || 1; $('#cal-in').value = '';
+  s.tech = {x:-85, y:Math.min(p.fcy+150, 300)};
+  computeH(); update();
+}
+document.querySelectorAll('[data-age]').forEach(b => b.addEventListener('click', () => { s.age = b.dataset.age; applyPreset(); }));
+document.querySelectorAll('[data-exam]').forEach(b => b.addEventListener('click', () => { s.exam = b.dataset.exam; applyPreset(); }));
+document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { s.view=b.dataset.view;
+  document.querySelectorAll('[data-view]').forEach(x=>x.setAttribute('aria-pressed', x===b)); update(); }));
+document.querySelectorAll('[data-th]').forEach(b => b.addEventListener('click', () => { s.thMin=+b.dataset.th; s.T=BG_PER_MIN*s.thMin;
+  document.querySelectorAll('[data-th]').forEach(x=>x.setAttribute('aria-pressed', x===b)); update(); }));
+$('#cal-apply').addEventListener('click', () => { const v=parseFloat($('#cal-in').value); if(!(v>0)) return;
+  s.cal = v / doseAt(100,0,model().S1raw); cals[calKey()] = s.cal; update(); });
+$('#cal-clear').addEventListener('click', () => { s.cal=1; delete cals[calKey()]; $('#cal-in').value=''; update(); });
+
+/* ---------- 3D / AR ---------- */
+function zoneAt(X, Z){ // metres from field centre on floor
+  const m = model(), r = Math.hypot(X, Z)*100, d = doseAt(X*100, Z*100, m.S1);
+  const z = d>=5*s.T ? ['가까이 오지 마세요','#ff6a55'] : (d>=safeT() || r<MIN_SAFE) ? ['물러서세요','#ffbe3d'] : ['안전','#3ee08f'];
+  return {d, r, label:z[0], color:z[1]};
+}
+function probeHTML(X, Z){ const q = zoneAt(X, Z);
+  return `<b style="color:${q.color}">${q.label}</b> · 중심에서 ${(q.r/100).toFixed(1)} m · 1회 ${uGy(q.d)}<small>자연방사선 ${bgLabel(q.d)} 정도</small>`; }
+
+const T3 = (() => {
+  if(!window.THREE) { $('#ar-msg').textContent='3D 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'; $('#ar-msg').hidden=false; return null; }
+  const wrap = $('#three-wrap');
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({antialias:true, alpha:true}); }
+  catch(e){ $('#ar-msg').textContent='이 기기에서 3D 화면을 켤 수 없습니다.'; $('#ar-msg').hidden=false; return null; }
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.setClearColor(0x000000, 0);
+  wrap.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(48, 4/3, 0.05, 60);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x5f6f70, 1.05));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.55); sun.position.set(2,4,1.5); scene.add(sun);
+  const root = new THREE.Group(); scene.add(root);
+  const grid = new THREE.GridHelper(7, 14, 0x7f9597, 0x7f9597); grid.material.transparent = true; grid.material.opacity = .3; root.add(grid);
+
+  // floor dose map
+  const MAP = 7, N = 280;
+  const mapCv = document.createElement('canvas'); mapCv.width = mapCv.height = N;
+  const mapTex = new THREE.CanvasTexture(mapCv); mapTex.encoding = THREE.sRGBEncoding;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(MAP, MAP), new THREE.MeshBasicMaterial({map:mapTex, transparent:true, depthWrite:false, side:THREE.DoubleSide}));
+  floor.rotation.x = -Math.PI/2; floor.position.y = 0.004; root.add(floor);
+  const props = new THREE.Group(); root.add(props);
+  const wall = new THREE.Group(); root.add(wall);
+  const disposeGroup = g => { while(g.children.length){ const o=g.children.pop(); o.traverse(n=>{ n.geometry&&n.geometry.dispose(); if(n.material){ n.material.map&&n.material.map.dispose(); n.material.dispose(); } }); } };
+
+  const mat = (c, o) => new THREE.MeshStandardMaterial(Object.assign({color:c, roughness:.7, metalness:.05}, o||{}));
+  const box = (w,h,d,m,x,y,z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m); b.position.set(x,y,z); props.add(b); return b; };
+  function capsule(r, len, m, x, y, z, flat){ const g = new THREE.Mesh(new THREE.CapsuleGeometry(r, Math.max(0.01,len), 6, 12), m);
+    g.rotation.x = Math.PI/2; g.scale.set(1, 1, flat||0.62); g.position.set(x,y,z); props.add(g); return g; }
+  function label(text, bg){ const cv=document.createElement('canvas'); cv.width=512; cv.height=128; const g=cv.getContext('2d');
+    g.fillStyle=bg; g.beginPath(); g.roundRect(4,14,504,100,26); g.fill(); g.fillStyle='#fff'; g.font='700 54px "IBM Plex Sans KR", sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,256,66);
+    const t=new THREE.CanvasTexture(cv); t.encoding=THREE.sRGBEncoding; const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t, depthTest:false, transparent:true})); sp.scale.set(0.8,0.2,1); sp.renderOrder=10; return sp; }
+
+  function buildProps(){
+    disposeGroup(props);
+    const ped = s.age==='ped', bedTop = ped ? 0.8 : 0.6, fc = fieldCenter();
+    const W = s.bedW/100, L = s.bedL/100, zc = (s.bedL/2 - fc.y)/100;
+    const frame = mat(0x8a979a), mattress = mat(0xe9eef0), skin = mat(0xe3b796), gown = mat(0x86aac2), dark = mat(0x4b5557), unit = mat(0xc9d1d4, {metalness:.25, roughness:.45});
+    box(W, 0.12, L, mattress, 0, bedTop-0.06, zc);
+    box(W*0.96, 0.07, L*0.96, frame, 0, bedTop-0.17, zc);
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([a,b]) => box(0.05, bedTop-0.2, 0.05, frame, a*(W/2-0.06), (bedTop-0.2)/2, zc+b*(L/2-0.06)));
+    if(ped){ box(0.02, 0.32, L, mat(0xb9c4c7,{transparent:true,opacity:.55}), -W/2, bedTop+0.12, zc); box(0.02, 0.32, L, mat(0xb9c4c7,{transparent:true,opacity:.55}), W/2, bedTop+0.12, zc); }
+    // detector under patient
+    box(Math.max(0.24, s.fw/100+0.02), 0.016, Math.max(0.24, s.fh/100+0.02), dark, 0, bedTop+0.008, 0);
+    // patient
+    const B = BODY[s.age], k = 1/100, top = bedTop+0.02;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(B.headR*k, 20, 16), skin); head.position.set(0, top+B.headR*k*0.9, (B.headY-fc.y)*k); props.add(head);
+    const trunkL = B.torsoL*0.45*k, legL = B.torsoL*0.55*k, tr = B.torsoW*k/2;
+    capsule(tr, trunkL-2*tr, gown, 0, top+tr*0.62, (B.torsoY-fc.y)*k + trunkL/2);
+    [-1,1].forEach(sg => capsule(tr*0.38, legL-tr*0.76, gown, sg*tr*0.45, top+tr*0.3, (B.torsoY-fc.y)*k + trunkL + legL/2 - tr*0.2, 1));
+    // mobile unit (patient's right side = -X)
+    const fy = bedTop + 0.02 + s.sid/100, ux = -(W/2 + 0.42);
+    box(0.5, 0.3, 0.75, unit, ux-0.15, 0.17, 0);
+    box(0.12, fy+0.25, 0.12, unit, ux, (fy+0.25)/2, 0);
+    box(-ux, 0.08, 0.1, unit, ux/2, fy+0.2, 0);
+    box(0.28, 0.2, 0.3, unit, 0, fy+0.1, 0);
+    box(0.17, 0.09, 0.17, dark, 0, fy-0.05, 0);
+    // beam
+    const hw = s.fw/200, hh = s.fh/200, by = bedTop+0.02;
+    const g = new THREE.BufferGeometry(), apex=[0,fy-0.09,0], c4=[[-hw,by,-hh],[hw,by,-hh],[hw,by,hh],[-hw,by,hh]];
+    const v=[]; for(let i=0;i<4;i++){ v.push(...apex, ...c4[i], ...c4[(i+1)%4]); }
+    g.setAttribute('position', new THREE.Float32BufferAttribute(v,3)); g.computeVertexNormals();
+    const beam = new THREE.Mesh(g, new THREE.MeshBasicMaterial({color:0xff3b3b, transparent:true, opacity:.22, side:THREE.DoubleSide, depthWrite:false})); beam.renderOrder=3; props.add(beam);
+  }
+
+  function buildMap(){
+    const m = model(), g = mapCv.getContext('2d'), img = g.createImageData(N,N), d = img.data;
+    for(let j=0;j<N;j++) for(let i=0;i<N;i++){
+      const X = ((i+.5)/N - .5)*MAP, Z = ((j+.5)/N - .5)*MAP, r = Math.hypot(X,Z);
+      const p = paint(doseAt(X*100, Z*100, m.S1), r*100); if(!p) continue;
+      const fade = Math.max(0, Math.min(1, (MAP/2 - r)/0.6));
+      const o=(j*N+i)*4; d[o]=p[0]; d[o+1]=p[1]; d[o+2]=p[2]; d[o+3]=Math.round(Math.min(255,(p[3]+50))*fade);
+    }
+    g.putImageData(img,0,0); mapTex.needsUpdate = true;
+  }
+
+  function buildWall(){
+    disposeGroup(wall);
+    const m = model(), pts = contour(m.S1, safeT(), MIN_SAFE); if(!pts) return;
+    const H = 1.8, pos = [], idx = [];
+    pts.forEach(([x,y],i) => { pos.push(x/100,0,y/100, x/100,H,y/100); if(i){ const a=(i-1)*2; idx.push(a,a+1,a+2, a+1,a+3,a+2); } });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos,3)); g.setIndex(idx);
+    const w = new THREE.Mesh(g, new THREE.MeshBasicMaterial({color:0x2fd27f, transparent:true, opacity:.16, side:THREE.DoubleSide, depthWrite:false})); w.renderOrder=4; wall.add(w);
+    [0.01, H].forEach(h => { const lg = new THREE.BufferGeometry().setFromPoints(pts.map(([x,y]) => new THREE.Vector3(x/100,h,y/100)));
+      wall.add(new THREE.Line(lg, new THREE.LineBasicMaterial({color:0x2fd27f}))); });
+    const sd = safeDist(m.S1), txt = '안전선 '+(sd.show/100).toFixed(1)+' m';
+    [[1,0],[-1,0],[0,1]].forEach(([a,b]) => { const r = sd.show/100; const sp = label(txt, 'rgba(18,122,74,.92)');
+      const rr = b ? r*Math.sqrt(1-0.3) : r; sp.position.set(a*rr, H+0.15, b*rr); wall.add(sp); });
+  }
+
+  // orbit view
+  const orb = {az:-0.75, el:0.62, dist:4.6, target:new THREE.Vector3(0,0.45,0.2)};
+  function placeCam(){ const {az,el,dist,target}=orb; cam.position.set(target.x+dist*Math.cos(el)*Math.sin(az), target.y+dist*Math.sin(el), target.z+dist*Math.cos(el)*Math.cos(az)); cam.lookAt(target); }
+  function resize(){ const w = wrap.clientWidth || 800, h = Math.round(Math.min(Math.max(w*0.78, 320), 620));
+    renderer.setSize(w, h, true); cam.aspect = w/h; cam.updateProjectionMatrix(); }
+  const ptrs = new Map(); let pinch0 = 0, dist0 = 0;
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), tmp = new THREE.Vector3();
+  function probeAt(cx, cy){ const r = renderer.domElement.getBoundingClientRect(); ndc.set((cx-r.left)/r.width*2-1, -((cy-r.top)/r.height*2-1));
+    ray.setFromCamera(ndc, cam); const hit = ray.intersectObject(floor)[0];
+    $('#probe').innerHTML = hit ? (root.worldToLocal(tmp.copy(hit.point)), probeHTML(tmp.x, tmp.z)) : '바닥을 가리키면 그 지점의 선량이 나옵니다'; }
+  const el = renderer.domElement;
+  el.addEventListener('pointerdown', e => { el.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,[e.clientX,e.clientY]);
+    if(ptrs.size===2){ const [a,b]=[...ptrs.values()]; pinch0=Math.hypot(a[0]-b[0],a[1]-b[1]); dist0=orb.dist; } });
+  el.addEventListener('pointermove', e => {
+    if(!ptrs.has(e.pointerId)){ if(e.pointerType==='mouse') probeAt(e.clientX, e.clientY); return; }
+    const p = ptrs.get(e.pointerId), dx = e.clientX-p[0], dy = e.clientY-p[1]; ptrs.set(e.pointerId,[e.clientX,e.clientY]);
+    if(ptrs.size===2){ const [a,b]=[...ptrs.values()]; const d=Math.hypot(a[0]-b[0],a[1]-b[1]); if(pinch0) orb.dist=Math.min(12,Math.max(1.5,dist0*pinch0/d)); }
+    else { orb.az -= dx*0.008; orb.el = Math.min(1.45, Math.max(0.08, orb.el + dy*0.006)); }
+    probeAt(e.clientX, e.clientY); });
+  const up = e => { ptrs.delete(e.pointerId); if(ptrs.size<2) pinch0=0; };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  el.addEventListener('wheel', e => { e.preventDefault(); orb.dist = Math.min(12, Math.max(1.5, orb.dist*(1+Math.sign(e.deltaY)*0.08))); }, {passive:false});
+
+  // WebXR AR
+  const xr = {session:null, hit:null, placed:false};
+  const reticle = new THREE.Mesh(new THREE.RingGeometry(0.09, 0.12, 32).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({color:0xffffff}));
+  reticle.matrixAutoUpdate = false; reticle.visible = false; scene.add(reticle);
+  const xrUI = $('#xr-ui');
+  async function startAR(){
+    const msg = $('#ar-msg'); msg.hidden = true;
+    const ok = navigator.xr && await navigator.xr.isSessionSupported('immersive-ar').catch(()=>false);
+    if(!ok){ msg.textContent = '이 기기나 이 화면에서는 AR을 쓸 수 없습니다. 안드로이드 Chrome 또는 삼성 인터넷에서 GitHub Pages 주소로 열어 주세요. 아이폰은 카메라 오버레이 탭을 쓰시면 됩니다.'; msg.hidden = false; return; }
+    try{
+      xrUI.hidden = false;
+      const session = await navigator.xr.requestSession('immersive-ar', {requiredFeatures:['hit-test'], optionalFeatures:['dom-overlay','local-floor'], domOverlay:{root:xrUI}});
+      renderer.xr.enabled = true; renderer.xr.setReferenceSpaceType('local'); await renderer.xr.setSession(session);
+      xr.session = session; xr.placed = false; root.visible = false; grid.visible = false;
+      xr.hit = await session.requestHitTestSource({space: await session.requestReferenceSpace('viewer')});
+      session.addEventListener('select', () => { if(!xr.placed && reticle.visible) place(); });
+      session.addEventListener('end', () => { xr.session=null; xr.hit=null; reticle.visible=false; renderer.xr.enabled=false; xrUI.hidden=true;
+        root.position.set(0,0,0); root.rotation.set(0,0,0); root.visible=true; grid.visible=true; resize(); });
+      $('#xr-preset').value = s.age+'-'+s.exam;
+      $('#xr-read').innerHTML = '바닥을 천천히 비추세요<small>흰 원이 나오면 조사야 중심 바로 아래 바닥을 맞추고 화면을 누릅니다</small>';
+      start();
+    }catch(e){ xrUI.hidden = true; msg.textContent = 'AR을 시작하지 못했습니다. 카메라 권한을 허용했는지 확인해 주세요.'; msg.hidden = false; }
+  }
+  function place(){
+    root.position.setFromMatrixPosition(reticle.matrix);
+    const cp = new THREE.Vector3().setFromMatrixPosition(renderer.xr.getCamera().matrixWorld);
+    root.rotation.set(0, Math.atan2(cp.x-root.position.x, cp.z-root.position.z), 0);
+    root.visible = true; xr.placed = true; reticle.visible = false;
+  }
+  document.querySelectorAll('#xr-ui button, #xr-ui select').forEach(b => b.addEventListener('beforexrselect', e => e.preventDefault()));
+  $('#xr-rotl').addEventListener('click', () => root.rotation.y += Math.PI/12);
+  $('#xr-rotr').addEventListener('click', () => root.rotation.y -= Math.PI/12);
+  $('#xr-place').addEventListener('click', () => { xr.placed = false; root.visible = false; });
+  $('#xr-end').addEventListener('click', () => xr.session && xr.session.end());
+  $('#xr-preset').addEventListener('change', e => { const [a,x] = e.target.value.split('-'); s.age=a; s.exam=x; applyPreset(); });
+  const setProps = on => { props.visible = on; $('#btn-props').setAttribute('aria-pressed', on); $('#btn-props').textContent = on ? '가상 환자·장비 숨기기' : '가상 환자·장비 보이기'; $('#xr-props').textContent = on ? '환자 숨기기' : '환자 보이기'; };
+  $('#xr-props').addEventListener('click', () => setProps(!props.visible));
+  $('#btn-props').addEventListener('click', () => setProps(!props.visible));
+  $('#btn-view').addEventListener('click', () => { Object.assign(orb, {az:-0.75, el:0.62, dist:4.6}); });
+  $('#btn-ar').addEventListener('click', startAR);
+
+  const centre = new THREE.Vector2(0,0);
+  function frame(t, f){
+    if(xr.session && f){
+      if(!xr.placed && xr.hit){ const res = f.getHitTestResults(xr.hit);
+        if(res.length){ const pose = res[0].getPose(renderer.xr.getReferenceSpace()); reticle.visible = true; reticle.matrix.fromArray(pose.transform.matrix); } else reticle.visible = false; }
+      if(xr.placed){ const xc = renderer.xr.getCamera(); ray.setFromCamera(centre, xc); const hit = ray.intersectObject(floor)[0];
+        $('#xr-read').innerHTML = hit ? (root.worldToLocal(tmp.copy(hit.point)), probeHTML(tmp.x, tmp.z)) : '바닥 쪽을 비추면 그 지점 선량이 나옵니다'; }
+    } else placeCam();
+    renderer.render(scene, cam);
+  }
+  let running = false;
+  function start(){ if(running) return; running = true; resize(); renderer.setAnimationLoop(frame); }
+  function stop(){ if(!running || xr.session) return; running = false; renderer.setAnimationLoop(null); }
+  function refresh(){ buildProps(); buildMap(); buildWall(); }
+  window.addEventListener('resize', () => { if(running && !xr.session) resize(); });
+  return {start, stop, refresh};
+})();
+
+function setTab(t){
+  ['plan','cam','3d'].forEach(k => { $('#tab-'+k).setAttribute('aria-selected', t===k); $('#stage-'+k).hidden = t!==k; });
+  if(t==='cam' && !c.raf) drawCam(); if(t==='plan') drawPlan();
+  if(T3){ t==='3d' ? (T3.refresh(), T3.start()) : T3.stop(); }
+}
+$('#tab-plan').addEventListener('click', ()=>setTab('plan'));
+$('#tab-cam').addEventListener('click', ()=>setTab('cam'));
+$('#tab-3d').addEventListener('click', ()=>setTab('3d'));
+
+function update(){ _st = null; readouts(); drawPlan(); if(!c.raf) drawCam(); if(T3 && !$('#stage-3d').hidden || T3 && !$('#xr-ui').hidden) T3.refresh(); }
+try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', update); }catch(e){}
+new MutationObserver(update).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+drawSample(); applyPreset();
+if(document.fonts) document.fonts.ready.then(update);
+})();
+</script>
