@@ -116,7 +116,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
   <div class="tabs" role="tablist">
     <button role="tab" id="tab-plan" aria-selected="true">평면도</button>
-    <button role="tab" id="tab-cam" aria-selected="false">카메라 오버레이</button>
+    <button role="tab" id="tab-cam" aria-selected="false" hidden>카메라 오버레이</button>
     <button role="tab" id="tab-3d" aria-selected="false">3D · AR</button>
   </div>
 
@@ -180,7 +180,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <div class="hint">안전선 밖에서 1회 촬영 때 받는 양이 고른 기준 이하입니다. 한국인 연평균 자연방사선 약 3 mSv를 기준으로 했습니다.</div>
       </fieldset>
 
-      <fieldset>
+      <!-- 촬영 조건·배치: 화면에서 숨김 (프리셋 값 보관용으로만 유지) -->
+      <fieldset hidden>
         <legend>촬영 조건<span class="tag" id="tmp-tag">임시값</span></legend>
         <div class="row"><label for="kv">관전압</label><input type="range" id="kv" min="40" max="120" step="1" value="85"><output id="o-kv"></output></div>
         <div class="row"><label for="mas">관전류량</label><input type="range" id="mas" min="0.1" max="20" step="0.01" value="2.5"><output id="o-mas"></output></div>
@@ -190,7 +191,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <div class="row"><label for="thick">환자 두께</label><input type="range" id="thick" min="6" max="35" step="1" value="22"><output id="o-thick"></output></div>
       </fieldset>
 
-      <fieldset>
+      <fieldset hidden>
         <legend>배치</legend>
         <div class="row"><label for="fcy">조사야 중심</label><input type="range" id="fcy" min="10" max="160" step="1" value="45"><output id="o-fcy"></output></div>
         <div class="row"><label for="nb">옆 병상 간격</label><input type="range" id="nb" min="1" max="2.4" step="0.1" value="2"><output id="o-nb"></output></div>
@@ -237,6 +238,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
       </select>
       <button id="xr-rotl" aria-label="왼쪽으로 회전">⟲</button>
       <button id="xr-rotr" aria-label="오른쪽으로 회전">⟳</button>
+      <button id="xr-demo" hidden>가상 환자로 보기</button>
       <button id="xr-place">다시 놓기</button>
       <button id="xr-props">환자 숨기기</button>
       <button id="xr-end">종료</button>
@@ -625,6 +627,10 @@ const T3 = (() => {
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(MAP, MAP), new THREE.MeshBasicMaterial({map:mapTex, transparent:true, depthWrite:false, side:THREE.DoubleSide}));
   floor.rotation.x = -Math.PI/2; floor.position.y = 0.004; root.add(floor);
   const props = new THREE.Group(); root.add(props);
+  let arBedTop = null;   // AR에서 잰 실제 침대 높이 (m)
+  const mark = new THREE.Group(); root.add(mark);
+  { const ring = new THREE.Mesh(new THREE.RingGeometry(0.07,0.1,40).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({color:0xff4b3a, transparent:true, opacity:.9, depthTest:false}));
+    ring.renderOrder = 12; mark.add(ring); mark.visible = false; }
   const wall = new THREE.Group(); root.add(wall);
   const disposeGroup = g => { while(g.children.length){ const o=g.children.pop(); o.traverse(n=>{ n.geometry&&n.geometry.dispose(); if(n.material){ n.material.map&&n.material.map.dispose(); n.material.dispose(); } }); } };
 
@@ -634,11 +640,11 @@ const T3 = (() => {
     g.rotation.x = Math.PI/2; g.scale.set(1, 1, flat||0.62); g.position.set(x,y,z); props.add(g); return g; }
   function label(text, bg){ const cv=document.createElement('canvas'); cv.width=512; cv.height=128; const g=cv.getContext('2d');
     g.fillStyle=bg; g.beginPath(); g.roundRect(4,14,504,100,26); g.fill(); g.fillStyle='#fff'; g.font='700 54px "IBM Plex Sans KR", sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(text,256,66);
-    const t=new THREE.CanvasTexture(cv); t.encoding=THREE.sRGBEncoding; const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t, depthTest:false, transparent:true})); sp.scale.set(0.8,0.2,1); sp.renderOrder=10; return sp; }
+    const t=new THREE.CanvasTexture(cv); t.encoding=THREE.sRGBEncoding; const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:t, depthTest:false, transparent:true})); sp.scale.set(0.56,0.14,1); sp.renderOrder=10; return sp; }
 
   function buildProps(){
     disposeGroup(props);
-    const ped = s.age==='ped', bedTop = ped ? 0.8 : 0.6, fc = fieldCenter();
+    const ped = s.age==='ped', bedTop = arBedTop || (ped ? 0.8 : 0.6), fc = fieldCenter();
     const W = s.bedW/100, L = s.bedL/100, zc = (s.bedL/2 - fc.y)/100;
     const frame = mat(0x8a979a), mattress = mat(0xe9eef0), skin = mat(0xe3b796), gown = mat(0x86aac2), dark = mat(0x4b5557), unit = mat(0xc9d1d4, {metalness:.25, roughness:.45});
     box(W, 0.12, L, mattress, 0, bedTop-0.06, zc);
@@ -690,7 +696,7 @@ const T3 = (() => {
       wall.add(new THREE.Line(lg, new THREE.LineBasicMaterial({color:0x2fd27f}))); });
     const sd = safeDist(m.S1), txt = '안전선 '+(sd.show/100).toFixed(1)+' m';
     [[1,0],[-1,0],[0,1]].forEach(([a,b]) => { const r = sd.show/100; const sp = label(txt, 'rgba(18,122,74,.92)');
-      const rr = b ? r*Math.sqrt(1-0.3) : r; sp.position.set(a*rr, H+0.15, b*rr); wall.add(sp); });
+      const rr = b ? r*Math.sqrt(1-0.3) : r; sp.position.set(a*rr, 1.25, b*rr); wall.add(sp); });
   }
 
   // orbit view
@@ -716,39 +722,60 @@ const T3 = (() => {
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   el.addEventListener('wheel', e => { e.preventDefault(); orb.dist = Math.min(12, Math.max(1.5, orb.dist*(1+Math.sign(e.deltaY)*0.08))); }, {passive:false});
 
-  // WebXR AR
-  const xr = {session:null, hit:null, placed:false};
+  // WebXR AR — 2단계 배치: ① 바닥 탭 → 바닥 높이  ② 촬영 부위 탭 → 중심 위치 + 침대 높이
+  const xr = {session:null, hit:null, step:'off', floorY:0, noteUntil:0};
   const reticle = new THREE.Mesh(new THREE.RingGeometry(0.09, 0.12, 32).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({color:0xffffff}));
   reticle.matrixAutoUpdate = false; reticle.visible = false; scene.add(reticle);
-  const xrUI = $('#xr-ui');
+  const floorMark = new THREE.Mesh(new THREE.RingGeometry(0.15, 0.18, 40).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({color:0x3ee08f}));
+  floorMark.visible = false; scene.add(floorMark);
+  const xrUI = $('#xr-ui'), rp = new THREE.Vector3();
+  const say = (h, sm) => { $('#xr-read').innerHTML = h + (sm ? '<small>'+sm+'</small>' : ''); };
+  function stepFloor(){ xr.step='floor'; root.visible=false; floorMark.visible=false; mark.visible=false; $('#xr-demo').hidden=true;
+    say('1/2 · 바닥을 비추세요', '흰 원이 침대 옆 <b>바닥</b>에 놓이면 화면을 누릅니다'); }
+  function stepCenter(){ xr.step='center'; $('#xr-demo').hidden=false;
+    say('2/2 · 촬영 부위를 비추세요', '흰 원을 침대 위 환자의 <b>조사야 중심</b>(가슴·배)에 맞추고 누릅니다'); }
   async function startAR(){
     const msg = $('#ar-msg'); msg.hidden = true;
     const ok = navigator.xr && await navigator.xr.isSessionSupported('immersive-ar').catch(()=>false);
-    if(!ok){ msg.textContent = '이 기기나 이 화면에서는 AR을 쓸 수 없습니다. 안드로이드 Chrome 또는 삼성 인터넷에서 GitHub Pages 주소로 열어 주세요. 아이폰은 카메라 오버레이 탭을 쓰시면 됩니다.'; msg.hidden = false; return; }
+    if(!ok){ msg.textContent = '이 기기나 이 화면에서는 AR을 쓸 수 없습니다. 안드로이드 Chrome 또는 삼성 인터넷에서 GitHub Pages 주소로 열어 주세요. 아이폰에서는 3D 보기만 됩니다.'; msg.hidden = false; return; }
     try{
       xrUI.hidden = false;
-      const session = await navigator.xr.requestSession('immersive-ar', {requiredFeatures:['hit-test'], optionalFeatures:['dom-overlay','local-floor'], domOverlay:{root:xrUI}});
+      const session = await navigator.xr.requestSession('immersive-ar', {requiredFeatures:['hit-test'], optionalFeatures:['dom-overlay'], domOverlay:{root:xrUI}});
       renderer.xr.enabled = true; renderer.xr.setReferenceSpaceType('local'); await renderer.xr.setSession(session);
-      xr.session = session; xr.placed = false; root.visible = false; grid.visible = false;
+      xr.session = session; grid.visible = false;
       xr.hit = await session.requestHitTestSource({space: await session.requestReferenceSpace('viewer')});
-      session.addEventListener('select', () => { if(!xr.placed && reticle.visible) place(); });
-      session.addEventListener('end', () => { xr.session=null; xr.hit=null; reticle.visible=false; renderer.xr.enabled=false; xrUI.hidden=true;
+      session.addEventListener('select', onSelect);
+      session.addEventListener('end', () => { xr.session=null; xr.hit=null; xr.step='off'; reticle.visible=false; floorMark.visible=false; mark.visible=false;
+        renderer.xr.enabled=false; xrUI.hidden=true; arBedTop=null; refresh(); setProps(true);
         root.position.set(0,0,0); root.rotation.set(0,0,0); root.visible=true; grid.visible=true; resize(); });
       $('#xr-preset').value = s.age+'-'+s.exam;
-      $('#xr-read').innerHTML = '바닥을 천천히 비추세요<small>흰 원이 나오면 조사야 중심 바로 아래 바닥을 맞추고 화면을 누릅니다</small>';
-      start();
+      stepFloor(); start();
     }catch(e){ xrUI.hidden = true; msg.textContent = 'AR을 시작하지 못했습니다. 카메라 권한을 허용했는지 확인해 주세요.'; msg.hidden = false; }
   }
-  function place(){
-    root.position.setFromMatrixPosition(reticle.matrix);
-    const cp = new THREE.Vector3().setFromMatrixPosition(renderer.xr.getCamera().matrixWorld);
-    root.rotation.set(0, Math.atan2(cp.x-root.position.x, cp.z-root.position.z), 0);
-    root.visible = true; xr.placed = true; reticle.visible = false;
+  // 환자 몸축(z)을 화면과 나란하게: 카메라가 환자 옆쪽에 선 것으로 둠
+  function faceCamera(){ const cp = new THREE.Vector3().setFromMatrixPosition(renderer.xr.getCamera().matrixWorld);
+    root.rotation.set(0, Math.atan2(cp.x-root.position.x, cp.z-root.position.z) - Math.PI/2, 0); }
+  function onSelect(){
+    if(!reticle.visible) return;
+    rp.setFromMatrixPosition(reticle.matrix);
+    if(xr.step==='floor'){ xr.floorY = rp.y; floorMark.position.copy(rp); floorMark.visible = true; stepCenter(); return; }
+    if(xr.step==='center'){
+      const h = rp.y - xr.floorY;
+      if(h < 0.25){ placeDemo(rp); return; }           // 바닥을 또 누르면 가상 환자 모드
+      arBedTop = Math.min(1.3, h); refresh();
+      root.position.set(rp.x, xr.floorY, rp.z); faceCamera();
+      mark.position.set(0, arBedTop+0.005, 0); mark.visible = true;
+      setProps(false); finish('침대 높이 '+Math.round(h*100)+' cm로 맞췄습니다');
+    }
   }
+  function placeDemo(p){ arBedTop = null; refresh(); root.position.set(p.x, xr.floorY, p.z); faceCamera(); mark.visible = false; setProps(true); finish('가상 환자로 보여 줍니다'); }
+  function finish(note){ xr.step='placed'; root.visible=true; reticle.visible=false; floorMark.visible=false; $('#xr-demo').hidden=true;
+    say(note, '이제 주변 바닥을 비추면 그 위치의 안전 여부가 나옵니다'); xr.noteUntil = performance.now()+2500; }
   document.querySelectorAll('#xr-ui button, #xr-ui select').forEach(b => b.addEventListener('beforexrselect', e => e.preventDefault()));
   $('#xr-rotl').addEventListener('click', () => root.rotation.y += Math.PI/12);
   $('#xr-rotr').addEventListener('click', () => root.rotation.y -= Math.PI/12);
-  $('#xr-place').addEventListener('click', () => { xr.placed = false; root.visible = false; });
+  $('#xr-place').addEventListener('click', () => { if(xr.session) stepFloor(); });
+  $('#xr-demo').addEventListener('click', () => { if(xr.step==='center') placeDemo(floorMark.position); });
   $('#xr-end').addEventListener('click', () => xr.session && xr.session.end());
   $('#xr-preset').addEventListener('change', e => { const [a,x] = e.target.value.split('-'); s.age=a; s.exam=x; applyPreset(); });
   const setProps = on => { props.visible = on; $('#btn-props').setAttribute('aria-pressed', on); $('#btn-props').textContent = on ? '가상 환자·장비 숨기기' : '가상 환자·장비 보이기'; $('#xr-props').textContent = on ? '환자 숨기기' : '환자 보이기'; };
@@ -757,13 +784,23 @@ const T3 = (() => {
   $('#btn-view').addEventListener('click', () => { Object.assign(orb, {az:-0.75, el:0.62, dist:4.6}); });
   $('#btn-ar').addEventListener('click', startAR);
 
-  const centre = new THREE.Vector2(0,0);
-  function frame(t, f){
+  const fwd = new THREE.Vector3(), fp = new THREE.Vector3(), q = new THREE.Quaternion();
+  function frame(time, f){
     if(xr.session && f){
-      if(!xr.placed && xr.hit){ const res = f.getHitTestResults(xr.hit);
-        if(res.length){ const pose = res[0].getPose(renderer.xr.getReferenceSpace()); reticle.visible = true; reticle.matrix.fromArray(pose.transform.matrix); } else reticle.visible = false; }
-      if(xr.placed){ const xc = renderer.xr.getCamera(); ray.setFromCamera(centre, xc); const hit = ray.intersectObject(floor)[0];
-        $('#xr-read').innerHTML = hit ? (root.worldToLocal(tmp.copy(hit.point)), probeHTML(tmp.x, tmp.z)) : '바닥 쪽을 비추면 그 지점 선량이 나옵니다'; }
+      if(xr.step==='floor' || xr.step==='center'){
+        const res = xr.hit ? f.getHitTestResults(xr.hit) : [];
+        if(res.length){ const pose = res[0].getPose(renderer.xr.getReferenceSpace()); reticle.visible = true; reticle.matrix.fromArray(pose.transform.matrix);
+          rp.setFromMatrixPosition(reticle.matrix); const h = rp.y - xr.floorY;
+          reticle.material.color.set(xr.step==='center' && h > 0.25 ? 0xff4b3a : 0xffffff);
+        } else reticle.visible = false;
+      }
+      if(xr.step==='placed' && performance.now() > xr.noteUntil){
+        // 화면 중앙 방향 광선과 바닥 평면의 교점 (ArrayCamera 대신 카메라 자세로 직접 계산)
+        const xc = renderer.xr.getCamera(); fp.setFromMatrixPosition(xc.matrixWorld); xc.matrixWorld.decompose(tmp, q, rp);
+        fwd.set(0,0,-1).applyQuaternion(q);
+        if(fwd.y < -0.05){ const k = (xr.floorY - fp.y)/fwd.y; tmp.copy(fp).addScaledVector(fwd, k); root.worldToLocal(tmp); say(probeHTML(tmp.x, tmp.z)); }
+        else say('바닥 쪽을 비추면 그 위치 선량이 나옵니다');
+      }
     } else placeCam();
     renderer.render(scene, cam);
   }
